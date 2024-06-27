@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/juju/ratelimit"
+	"go.uber.org/zap"
 )
 
 var (
@@ -30,15 +30,15 @@ var (
 
 func NewClient() *Client {
 	c := &Client{}
-	c.SetLogger(DefaultLogger{})
-	c.SetUserAgent("github.com/Jleagle/steam-go")
+	c.SetLogger(zap.NewExample())
+	c.SetUserAgent("https://github.com/gurovCode/steam-go")
 	c.SetTimeout(time.Second * 5)
 	return c
 }
 
 type Client struct {
 	key             string
-	logger          logger
+	logger          *zap.Logger
 	userAgent       string
 	apiBucket       *ratelimit.Bucket
 	storeBucket     *ratelimit.Bucket
@@ -54,7 +54,7 @@ func (c *Client) SetTimeout(timeout time.Duration) {
 	c.timeout = timeout
 }
 
-func (c *Client) SetLogger(logger logger) {
+func (c *Client) SetLogger(logger *zap.Logger) {
 	c.logger = logger
 }
 
@@ -74,7 +74,7 @@ func (c *Client) SetCommunityRateLimit(duration time.Duration, burst int64) {
 	c.communityBucket = ratelimit.NewBucket(duration, burst)
 }
 
-func (c Client) getFromAPI(path string, query url.Values, key bool) (b []byte, err error) {
+func (c *Client) getFromAPI(path string, query url.Values, key bool) (b []byte, err error) {
 
 	if c.key == "" && key {
 		return b, ErrMissingKey
@@ -92,22 +92,21 @@ func (c Client) getFromAPI(path string, query url.Values, key bool) (b []byte, e
 
 	b, code, _, err := c.get("https://api.steampowered.com/" + path + "?" + query.Encode())
 	if err != nil {
-		return b, err
+		return b, fmt.Errorf("get: %w", err)
 	}
 
 	// Handle errors
 	if code != 200 {
 		if val, ok := apiStatusCodes[code]; ok {
-			return b, Error{Err: val, Code: code, URL: path}
+			return b, fmt.Errorf("err: %s , code: %d  url: %s", val, code, path)
 		} else {
-			return b, Error{Err: "something went wrong", Code: 0, URL: path}
+			return b, fmt.Errorf("err: %s , code: %d  url: %s", "something went wrong", 0, path)
 		}
 	}
-
 	return b, err
 }
 
-func (c Client) getFromStore(path string, query url.Values) (b []byte, err error) {
+func (c *Client) getFromStore(path string, query url.Values) (b []byte, err error) {
 
 	if c.storeBucket != nil {
 		c.storeBucket.Wait(1)
@@ -121,7 +120,7 @@ func (c Client) getFromStore(path string, query url.Values) (b []byte, err error
 	return b, err
 }
 
-func (c Client) getFromCommunity(path string, query url.Values) (b []byte, url string, err error) {
+func (c *Client) getFromCommunity(path string, query url.Values) (b []byte, url string, err error) {
 
 	if c.communityBucket != nil {
 		c.communityBucket.Wait(1)
@@ -135,7 +134,7 @@ func (c Client) getFromCommunity(path string, query url.Values) (b []byte, url s
 	return b, url, err
 }
 
-func (c Client) get(path string) (b []byte, code int, url string, err error) {
+func (c *Client) get(path string) (b []byte, code int, url string, err error) {
 
 	client := &http.Client{
 		Timeout: c.timeout,
@@ -156,11 +155,11 @@ func (c Client) get(path string) (b []byte, code int, url string, err error) {
 	defer func(response *http.Response) {
 		err = response.Body.Close()
 		if err != nil {
-			c.logger.Err(err)
+			c.logger.Error("Body.Close", zap.Error(err))
 		}
 	}(response)
 
-	b, err = ioutil.ReadAll(response.Body)
+	b, err = io.ReadAll(response.Body)
 	if err != nil {
 		return b, code, url, err
 	}
@@ -171,37 +170,7 @@ func (c Client) get(path string) (b []byte, code int, url string, err error) {
 	code = response.StatusCode
 	url = response.Request.URL.Path
 
-	c.logger.Info(path)
+	c.logger.Debug(path)
 
 	return b, code, url, err
-}
-
-type logger interface {
-	Info(string)
-	Err(error)
-}
-
-type DefaultLogger struct {
-}
-
-func (l DefaultLogger) Info(s string) {
-	if s != "" {
-		fmt.Println("INFO: " + s)
-	}
-}
-
-func (l DefaultLogger) Err(err error) {
-	if err != nil {
-		fmt.Println("ERROR: " + err.Error())
-	}
-}
-
-type Error struct {
-	Err  string
-	Code int
-	URL  string
-}
-
-func (e Error) Error() string {
-	return "steam-go: (" + strconv.Itoa(e.Code) + ") " + e.Err + " (" + e.URL + ")"
 }
