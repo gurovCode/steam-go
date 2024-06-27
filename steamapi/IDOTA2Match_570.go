@@ -48,6 +48,10 @@ type TeamSummary struct {
 	CountryCode      string `json:"country_code"`
 	Url              string `json:"url"`
 	GamesPlayed      int    `json:"games_played"`
-	Player0AccountId int    `json:"player_0_account_id"`
+	Player0AccountId int    `json:"player_0_account_id,omitempty"`
+	Player1AccountId int    `json:"player_1_account_id,omitempty"`
+	Player2AccountId int    `json:"player_2_account_id,omitempty"`
+	Player3AccountId int    `json:"player_3_account_id,omitempty"`
+	Player4AccountId int    `json:"player_4_account_id,omitempty"`
 	AdminAccountId   int    `json:"admin_account_id"`
 }
