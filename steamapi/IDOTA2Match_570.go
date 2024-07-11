@@ -51,5 +51,7 @@ type TeamSummary struct {
 	Player2AccountId int    `json:"player_2_account_id,omitempty"`
 	Player3AccountId int    `json:"player_3_account_id,omitempty"`
 	Player4AccountId int    `json:"player_4_account_id,omitempty"`
+	Player5AccountId int    `json:"player_5_account_id,omitempty"`
+	Player6AccountId int    `json:"player_6_account_id,omitempty"`
 	AdminAccountId   int    `json:"admin_account_id"`
 }
