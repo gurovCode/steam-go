@@ -43,8 +43,6 @@ type TeamSummary struct {
 	Tag              string `json:"tag"`
 	Abbreviation     string `json:"abbreviation"`
 	TimeCreated      int    `json:"time_created"`
-	Logo             int    `json:"logo"`
-	LogoSponsor      int64  `json:"logo_sponsor"`
 	CountryCode      string `json:"country_code"`
 	Url              string `json:"url"`
 	GamesPlayed      int    `json:"games_played"`
